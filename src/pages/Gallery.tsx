@@ -4,7 +4,7 @@ import { Photo } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 const Gallery: React.FC = () => {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, refreshData } = useApp();
   const [showUpload, setShowUpload] = useState(false);
   const [uploadForm, setUploadForm] = useState({
     title: '',
@@ -18,7 +18,7 @@ const Gallery: React.FC = () => {
     if (!uploadForm.file) return;
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const newPhoto: Photo = {
         id: uuidv4(),
         title: uploadForm.title,
@@ -28,9 +28,15 @@ const Gallery: React.FC = () => {
         uploadDate: new Date().toISOString()
       };
       
-      dispatch({ type: 'ADD_PHOTO', payload: newPhoto });
-      setUploadForm({ title: '', description: '', photographer: '', file: null });
-      setShowUpload(false);
+      try {
+        await dispatch({ type: 'ADD_PHOTO', payload: newPhoto });
+        if (refreshData) await refreshData();
+        setUploadForm({ title: '', description: '', photographer: '', file: null });
+        setShowUpload(false);
+      } catch (error) {
+        console.error("Error uploading photo:", error);
+        // Bisa tambahkan notifikasi/toast disini
+      }
     };
     reader.readAsDataURL(uploadForm.file);
   };

@@ -8,4 +8,18 @@ if (!supabaseUrl || !supabaseKey) {
   console.error("Missing Supabase environment variables. Please check your Vercel project settings.");
 }
 
-export const supabaseClient = createClient(supabaseUrl, supabaseKey);
+export const supabaseClient = createClient(supabaseUrl, supabaseKey, {
+  db: {
+    schema: 'public',
+  },
+  global: {
+    headers: {
+      'X-Supabase-Client': 'React'
+    }
+  },
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});

@@ -150,18 +150,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } else if (STORAGE_MODE === 'supabase') {
       try {
         if (action.type === 'ADD_MEMBER') {
-          await supabaseClient.from('members').insert(action.payload);
+          const { error } = await supabaseClient.from('members').insert(action.payload);
+          if (error) throw error;
         } else if (action.type === 'UPDATE_MEMBER') {
-          await supabaseClient.from('members').update(action.payload).eq('id', action.payload.id);
+          const { error } = await supabaseClient.from('members').update(action.payload).eq('id', action.payload.id);
+          if (error) throw error;
         } else if (action.type === 'DELETE_MEMBER') {
-          await supabaseClient.from('members').delete().eq('id', action.payload);
+          const { error } = await supabaseClient.from('members').delete().eq('id', action.payload);
+          if (error) throw error;
         } else if (action.type === 'ADD_PHOTO') {
-          await supabaseClient.from('photos').insert(action.payload);
+          const { error } = await supabaseClient.from('photos').insert(action.payload);
+          if (error) throw error;
         } else if (action.type === 'DELETE_PHOTO') {
-          await supabaseClient.from('photos').delete().eq('id', action.payload);
+          const { error } = await supabaseClient.from('photos').delete().eq('id', action.payload);
+          if (error) throw error;
         }
+        
+        // Refresh data setelah operasi supabase selesai untuk memastikan sync
+        if (refreshData) await refreshData();
       } catch (error) {
-        // Optionally handle error
+        console.error("Supabase error:", error);
+        dispatch({ type: 'SET_ERROR', payload: 'Failed to save data to Supabase' });
+        // Bisa tambahkan notifikasi/toast disini
       }
     }
   };
