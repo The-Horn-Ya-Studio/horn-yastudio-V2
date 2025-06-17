@@ -35,3 +35,8 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
 }
+
+type AppAction = 
+  | { type: 'SET_MEMBERS_LOADING'; payload: boolean }
+  | { type: 'SET_PHOTOS_LOADING'; payload: boolean }
+  | { type: 'SET_LAST_UPDATE'; payload: number };

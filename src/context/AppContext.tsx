@@ -13,6 +13,9 @@ interface AppState {
   photos: Photo[];
   isLoading?: boolean;
   error?: string | null;
+  membersLoading: boolean;
+  photosLoading: boolean;
+  lastUpdate: number;
 }
 
 type AppAction = 
@@ -25,13 +28,19 @@ type AppAction =
   | { type: 'DELETE_PHOTO'; payload: string }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_INITIAL_DATA'; payload: AppState };
+  | { type: 'SET_INITIAL_DATA'; payload: AppState }
+  | { type: 'SET_MEMBERS_LOADING'; payload: boolean }
+  | { type: 'SET_PHOTOS_LOADING'; payload: boolean }
+  | { type: 'SET_LAST_UPDATE'; payload: number };
 
 const initialState: AppState = {
   members: [],
   photos: [],
   isLoading: false,
-  error: null
+  error: null,
+  membersLoading: true,
+  photosLoading: true,
+  lastUpdate: 0
 };
 
 const AppContext = createContext<{
@@ -82,6 +91,15 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'SET_INITIAL_DATA':
       newState = action.payload;
       break;
+    case 'SET_MEMBERS_LOADING':
+      newState = { ...state, membersLoading: action.payload };
+      break;
+    case 'SET_PHOTOS_LOADING':
+      newState = { ...state, photosLoading: action.payload };
+      break;
+    case 'SET_LAST_UPDATE':
+      newState = { ...state, lastUpdate: action.payload };
+      break;
     default:
       return state;
   }
@@ -92,65 +110,76 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [state, dispatch] = useReducer(appReducer, initialState);
   const fetchTimeoutRef = useRef<NodeJS.Timeout>();
   const isMountedRef = useRef(true);
+  const cachedDataRef = useRef<{
+    members?: Member[];
+    photos?: Photo[];
+  }>({});
+
+  const fetchMembers = async () => {
+    try {
+      dispatch({ type: 'SET_MEMBERS_LOADING', payload: true });
+      const { data, error } = await supabaseClient
+        .from('members')
+        .select('*');
+
+      if (error) throw error;
+      
+      if (isMountedRef.current) {
+        cachedDataRef.current.members = data || [];
+        dispatch({ type: 'SET_MEMBERS', payload: data || [] });
+      }
+    } catch (error) {
+      console.error('Members fetch error:', error);
+    } finally {
+      dispatch({ type: 'SET_MEMBERS_LOADING', payload: false });
+    }
+  };
+
+  const fetchPhotos = async () => {
+    try {
+      dispatch({ type: 'SET_PHOTOS_LOADING', payload: true });
+      const { data, error } = await supabaseClient
+        .from('gallery')
+        .select('*');
+
+      if (error) throw error;
+      
+      if (isMountedRef.current) {
+        cachedDataRef.current.photos = data || [];
+        dispatch({ type: 'SET_PHOTOS', payload: data || [] });
+      }
+    } catch (error) {
+      console.error('Photos fetch error:', error);
+    } finally {
+      dispatch({ type: 'SET_PHOTOS_LOADING', payload: false });
+    }
+  };
 
   const fetchData = async () => {
-    if (!isMountedRef.current) return;
-    
-    try {
-      // Get members with correct ordering
-      const { data: membersData, error: membersError } = await supabaseClient
-        .from('members')
-        .select('*')
-        .order('joinDate', { ascending: false });
-
-      if (membersError) throw membersError;
-      
-      if (isMountedRef.current) {
-        dispatch({ type: 'SET_MEMBERS', payload: membersData || [] });
-      }
-
-      // Get photos with correct ordering
-      const getPhotos = async (retryCount = 0): Promise<Photo[]> => {
-        try {
-          const { data, error } = await supabaseClient
-            .from('photos')
-            .select('*')
-            .order('uploadDate', { ascending: false });
-
-          if (error) throw error;
-          return data || [];
-        } catch (err) {
-          if (retryCount < 3) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return getPhotos(retryCount + 1);
-          }
-          throw err;
-        }
-      };
-
-      const photosData = await getPhotos();
-      
-      if (isMountedRef.current) {
-        dispatch({ type: 'SET_PHOTOS', payload: photosData });
-      }
-
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      if (isMountedRef.current) {
-        dispatch({ type: 'SET_ERROR', payload: 'Failed to load data' });
-      }
+    if (cachedDataRef.current.members) {
+      dispatch({ type: 'SET_MEMBERS', payload: cachedDataRef.current.members });
     }
+    if (cachedDataRef.current.photos) {
+      dispatch({ type: 'SET_PHOTOS', payload: cachedDataRef.current.photos });
+    }
+
+    await Promise.all([fetchMembers(), fetchPhotos()]);
+    dispatch({ type: 'SET_LAST_UPDATE', payload: Date.now() });
   };
 
   useEffect(() => {
     isMountedRef.current = true;
+    
     fetchData();
 
-    // Set up periodic refresh every 10 seconds
-    fetchTimeoutRef.current = setInterval(fetchData, 10000);
+    fetchTimeoutRef.current = setInterval(fetchData, 3000);
+
+    const onFocus = () => fetchData();
+    window.addEventListener('focus', onFocus);
 
     return () => {
       isMountedRef.current = false;
+      window.removeEventListener('focus', onFocus);
       if (fetchTimeoutRef.current) {
         clearInterval(fetchTimeoutRef.current);
       }
@@ -164,42 +193,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (action.type === 'ADD_MEMBER') {
         const { error } = await supabaseClient
           .from('members')
-          .insert({ 
-            ...action.payload,
-            joinDate: new Date().toISOString() 
-          });
+          .insert(action.payload);
         if (error) throw error;
+        
+        fetchMembers();
+      } else if (action.type === 'ADD_PHOTO') {
+        const { error } = await supabaseClient
+          .from('gallery')
+          .insert(action.payload);
+        if (error) throw error;
+        
+        fetchPhotos();
       } else if (action.type === 'UPDATE_MEMBER') {
         const { error } = await supabaseClient
           .from('members')
           .update(action.payload)
           .eq('id', action.payload.id);
         if (error) throw error;
+        
+        fetchMembers();
       } else if (action.type === 'DELETE_MEMBER') {
         const { error } = await supabaseClient
           .from('members')
           .delete()
           .eq('id', action.payload);
         if (error) throw error;
-      } else if (action.type === 'ADD_PHOTO') {
-        const { error } = await supabaseClient
-          .from('photos')
-          .insert({ 
-            ...action.payload,
-            uploadDate: new Date().toISOString() 
-          });
-        if (error) throw error;
+        
+        fetchMembers();
       } else if (action.type === 'DELETE_PHOTO') {
         const { error } = await supabaseClient
-          .from('photos')
+          .from('gallery')
           .delete()
           .eq('id', action.payload);
         if (error) throw error;
+        
+        fetchPhotos();
       }
-      
-      fetchData();
     } catch (error) {
-      console.error("Supabase error:", error);
+      console.error("Sync error:", error);
+      fetchData();
       dispatch({ type: 'SET_ERROR', payload: 'Failed to save changes' });
     }
   };
