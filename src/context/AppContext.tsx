@@ -93,16 +93,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchTimeoutRef = useRef<NodeJS.Timeout>();
   const isMountedRef = useRef(true);
 
-  // Single fetch function for both members and photos
   const fetchData = async () => {
     if (!isMountedRef.current) return;
     
     try {
-      // Get members first
+      // Get members with correct ordering
       const { data: membersData, error: membersError } = await supabaseClient
         .from('members')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('joinDate', { ascending: false });
 
       if (membersError) throw membersError;
       
@@ -110,19 +109,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         dispatch({ type: 'SET_MEMBERS', payload: membersData || [] });
       }
 
-      // Get photos with retry mechanism
+      // Get photos with correct ordering
       const getPhotos = async (retryCount = 0): Promise<Photo[]> => {
         try {
           const { data, error } = await supabaseClient
             .from('photos')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('uploadDate', { ascending: false });
 
           if (error) throw error;
           return data || [];
         } catch (err) {
           if (retryCount < 3) {
-            // Wait 1 second before retry
             await new Promise(resolve => setTimeout(resolve, 1000));
             return getPhotos(retryCount + 1);
           }
@@ -144,7 +142,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // Initial fetch
   useEffect(() => {
     isMountedRef.current = true;
     fetchData();
@@ -160,7 +157,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, []);
 
-  // Modified dispatchWithSync
   const dispatchWithSync = async (action: AppAction) => {
     dispatch(action);
 
@@ -168,7 +164,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (action.type === 'ADD_MEMBER') {
         const { error } = await supabaseClient
           .from('members')
-          .insert({ ...action.payload, created_at: new Date().toISOString() });
+          .insert({ 
+            ...action.payload,
+            joinDate: new Date().toISOString() 
+          });
         if (error) throw error;
       } else if (action.type === 'UPDATE_MEMBER') {
         const { error } = await supabaseClient
@@ -185,7 +184,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } else if (action.type === 'ADD_PHOTO') {
         const { error } = await supabaseClient
           .from('photos')
-          .insert({ ...action.payload, created_at: new Date().toISOString() });
+          .insert({ 
+            ...action.payload,
+            uploadDate: new Date().toISOString() 
+          });
         if (error) throw error;
       } else if (action.type === 'DELETE_PHOTO') {
         const { error } = await supabaseClient
@@ -195,7 +197,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (error) throw error;
       }
       
-      // Fetch fresh data after mutation
       fetchData();
     } catch (error) {
       console.error("Supabase error:", error);
