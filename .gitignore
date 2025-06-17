@@ -41,3 +41,4 @@ next-env.d.ts
 # GitHub-related credentials
 .git-credentials
 *.token
+.vercel

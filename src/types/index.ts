@@ -8,6 +8,7 @@ export interface Member {
   skills: string[];
   socialLinks?: {
     twitter?: string;
+    facebook?: string;
     github?: string;
     discord?: string;
     website?: string;

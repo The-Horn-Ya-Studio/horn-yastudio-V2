@@ -19,7 +19,7 @@ const Home: React.FC = () => {
             </h1>
           </div>
           <p style={heroSubtitleStyle}>
-            Where Technology, Creativity, and Anime Culture Collide
+            Where Creativity Meets Community and Talents Unite!
           </p>
           <div style={heroButtonsStyle}>
             <Link to="/members" style={primaryButtonStyle}>

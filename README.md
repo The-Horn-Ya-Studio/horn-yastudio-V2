@@ -11,6 +11,7 @@ This project is built using the following technologies:
 - **Frontend Framework**: React 18 with TypeScript
 - **Routing**: React Router v6
 - **State Management**: Context API with useReducer
+- **Database & Storage**: Supabase (PostgreSQL + Storage)
 - **Styling**: CSS-in-JS with inline styles (custom theming system)
 - **Build Tool**: Create React App
 - **Package Management**: npm/yarn
@@ -25,6 +26,23 @@ This project is built using the following technologies:
 - **Admin Panel**: Protected route for content management
   - Member management (add, edit, delete)
   - Gallery management (upload, delete)
+
+## Data Persistence
+
+This application uses Supabase for data persistence:
+
+- Member data and gallery photos are saved in a PostgreSQL database
+- Images are stored using Supabase Storage
+- Real-time updates using Supabase's Realtime feature
+- Fallback to localStorage if Supabase is unavailable
+
+Setup instructions for Supabase:
+1. Create a Supabase account at https://supabase.com
+2. Create a new project
+3. Create the following tables:
+   - 'members' - to store member profiles
+   - 'photos' - to store gallery items
+4. Add your Supabase URL and anon key to your .env file
 
 ## Getting Started
 

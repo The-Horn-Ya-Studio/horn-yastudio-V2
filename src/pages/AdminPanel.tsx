@@ -20,6 +20,7 @@ const AdminPanel: React.FC = () => {
     skills: '',
     avatar: null as File | null,
     twitter: '',
+    facebook: '',
     github: '',
     discord: '',
     website: '',
@@ -40,6 +41,7 @@ const AdminPanel: React.FC = () => {
         joinDate: editingMember?.joinDate || new Date().toISOString(),
         socialLinks: {
           ...(memberForm.twitter && { twitter: memberForm.twitter }),
+          ...(memberForm.facebook && { facebook: memberForm.facebook }),
           ...(memberForm.github && { github: memberForm.github }),
           ...(memberForm.discord && { discord: memberForm.discord }),
           ...(memberForm.website && { website: memberForm.website }),
@@ -73,6 +75,7 @@ const AdminPanel: React.FC = () => {
       skills: '', 
       avatar: null,
       twitter: '',
+      facebook: '',
       github: '',
       discord: '',
       website: '',
@@ -91,6 +94,7 @@ const AdminPanel: React.FC = () => {
       skills: member.skills.join(', '),
       avatar: null,
       twitter: member.socialLinks?.twitter || '',
+      facebook: member.socialLinks?.facebook || '',
       github: member.socialLinks?.github || '',
       discord: member.socialLinks?.discord || '',
       website: member.socialLinks?.website || '',
@@ -225,6 +229,17 @@ const AdminPanel: React.FC = () => {
                   placeholder="https://twitter.com/username"
                   value={memberForm.twitter}
                   onChange={(e) => setMemberForm({...memberForm, twitter: e.target.value})}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={inputGroupStyle}>
+                <label style={labelStyle}>Facebook URL</label>
+                <input
+                  type="url"
+                  placeholder="https://facebook.com/username"
+                  value={memberForm.facebook}
+                  onChange={(e) => setMemberForm({...memberForm, facebook: e.target.value})}
                   style={inputStyle}
                 />
               </div>

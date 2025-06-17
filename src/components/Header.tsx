@@ -12,7 +12,7 @@ const Header: React.FC = () => {
             Studio
           </h1>
         </div>
-        <p style={subtitleStyle}>Where Anime Culture meets Community</p>
+        <p style={subtitleStyle}>Where Creativity Meets Community and Talents Unite!</p>
       </div>
       <div style={decorationStyle}></div>
     </header>
