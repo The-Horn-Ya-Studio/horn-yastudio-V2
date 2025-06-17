@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useRef, useState } from 'react';
 import { Member, Photo } from '../types';
 import { supabaseClient } from '../supabase/client';
 
@@ -90,55 +90,147 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [subscribed, setSubscribed] = useState(false);
+  const membersChannelRef = useRef<any>(null);
+  const photosChannelRef = useRef<any>(null);
 
   // --- LOCAL VM STORAGE MODE (via backend API) ---
   useEffect(() => {
     if (STORAGE_MODE === 'local') {
+      let isMounted = true;
       const fetchData = async () => {
+        if (!isMounted) return;
+        dispatch({ type: 'SET_LOADING', payload: true });
         try {
-          dispatch({ type: 'SET_LOADING', payload: true });
           const res = await fetch(LOCAL_API_URL);
           const data = await res.json();
-          dispatch({ type: 'SET_INITIAL_DATA', payload: data });
+          if (isMounted) dispatch({ type: 'SET_INITIAL_DATA', payload: data });
         } catch (error) {
-          dispatch({ type: 'SET_ERROR', payload: 'Failed to load data from local VM' });
+          if (isMounted) dispatch({ type: 'SET_ERROR', payload: 'Failed to load data from local VM' });
         } finally {
-          dispatch({ type: 'SET_LOADING', payload: false });
+          if (isMounted) dispatch({ type: 'SET_LOADING', payload: false });
         }
       };
       fetchData();
+      return () => { isMounted = false; };
     }
   }, []);
 
-  // --- SUPABASE MODE ---
+  // --- SUPABASE MODE: Fast load & Realtime sync ---
   useEffect(() => {
-    if (STORAGE_MODE === 'supabase') {
-      const fetchData = async () => {
-        dispatch({ type: 'SET_LOADING', payload: true });
-        try {
-          const { data: membersData, error: membersError } = await supabaseClient.from('members').select('*');
-          const { data: photosData, error: photosError } = await supabaseClient.from('photos').select('*');
-          if (membersError || photosError) throw new Error('Failed to fetch data from Supabase');
+    if (STORAGE_MODE !== 'supabase' || subscribed) {
+      return; // Skip if not using Supabase or already subscribed
+    }
+    
+    let isMounted = true;
+    console.log('Setting up Supabase realtime subscriptions');
+
+    const fetchData = async () => {
+      if (!isMounted) return;
+      dispatch({ type: 'SET_LOADING', payload: true });
+      try {
+        const { data: membersData } = await supabaseClient.from('members').select('*');
+        const { data: photosData } = await supabaseClient.from('photos').select('*');
+        if (isMounted) {
           if (membersData) dispatch({ type: 'SET_MEMBERS', payload: membersData });
           if (photosData) dispatch({ type: 'SET_PHOTOS', payload: photosData });
           dispatch({ type: 'SET_ERROR', payload: null });
-        } catch (error) {
-          dispatch({ type: 'SET_ERROR', payload: 'Failed to load data' });
-        } finally {
-          dispatch({ type: 'SET_LOADING', payload: false });
         }
-      };
-      fetchData();
-    }
-  }, []);
+      } catch (error) {
+        if (isMounted) dispatch({ type: 'SET_ERROR', payload: 'Failed to load data' });
+      } finally {
+        if (isMounted) dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
+    
+    const setupSubscriptions = async () => {
+      if (subscribed || !isMounted) return;
+      
+      try {
+        await fetchData(); // Initial data load
+        
+        // Generate unique channel IDs for this session
+        const timestamp = new Date().getTime();
+        const membersChannelId = `members-channel-${timestamp}`;
+        const photosChannelId = `photos-channel-${timestamp}`;
+        
+        // Create channels
+        const membersChannel = supabaseClient
+          .channel(membersChannelId)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
+            if (isMounted) {
+              console.log('Members change received:', payload);
+              fetchData();
+            }
+          });
+        
+        const photosChannel = supabaseClient
+          .channel(photosChannelId)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'photos' }, (payload) => {
+            if (isMounted) {
+              console.log('Photos change received:', payload);
+              fetchData();
+            }
+          });
+          
+        // Subscribe sequentially to avoid race conditions
+        await membersChannel.subscribe();
+        await photosChannel.subscribe();
+        
+        // Store references only after successful subscription
+        membersChannelRef.current = membersChannel;
+        photosChannelRef.current = photosChannel;
+        
+        if (isMounted) {
+          console.log('Successfully subscribed to all channels');
+          setSubscribed(true);
+        }
+      } catch (error) {
+        console.error('Error setting up Supabase subscriptions:', error);
+        dispatch({ type: 'SET_ERROR', payload: 'Failed to subscribe to data changes' });
+      }
+    };
 
-  // Middleware for sync
+    setupSubscriptions();
+    
+    // Cleanup function to remove channels when component unmounts
+    return () => {
+      console.log('Cleaning up Supabase subscriptions...');
+      isMounted = false;
+      
+      const cleanupChannels = async () => {
+        try {
+          if (membersChannelRef.current) {
+            await supabaseClient.removeChannel(membersChannelRef.current);
+            console.log('Members channel removed');
+          }
+        } catch (e) {
+          console.error('Error removing members channel:', e);
+        }
+        
+        try {
+          if (photosChannelRef.current) {
+            await supabaseClient.removeChannel(photosChannelRef.current);
+            console.log('Photos channel removed');
+          }
+        } catch (e) {
+          console.error('Error removing photos channel:', e);
+        }
+        
+        membersChannelRef.current = null;
+        photosChannelRef.current = null;
+        setSubscribed(false);
+      };
+      
+      cleanupChannels();
+    };
+  }, [subscribed]); // Only depends on subscribed state
+
   const dispatchWithSync = async (action: AppAction) => {
     let nextState = appReducer(state, action);
     dispatch(action);
 
     if (STORAGE_MODE === 'local') {
-      // Save to backend API
       await fetch(LOCAL_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -165,18 +257,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           const { error } = await supabaseClient.from('photos').delete().eq('id', action.payload);
           if (error) throw error;
         }
-        
-        // Refresh data setelah operasi supabase selesai untuk memastikan sync
-        if (refreshData) await refreshData();
+        // Tidak perlu refreshData karena realtime akan otomatis update
       } catch (error) {
         console.error("Supabase error:", error);
         dispatch({ type: 'SET_ERROR', payload: 'Failed to save data to Supabase' });
-        // Bisa tambahkan notifikasi/toast disini
       }
     }
   };
 
-  // refreshData
+  // refreshData (masih bisa dipakai manual)
   const refreshData = async () => {
     if (STORAGE_MODE === 'local') {
       const res = await fetch(LOCAL_API_URL);
