@@ -3,6 +3,7 @@ import { Member, Photo } from '../types';
 import { supabaseClient } from '../supabase/client';
 
 const STORAGE_MODE = process.env.REACT_APP_STORAGE_MODE || 'local';
+const LOCAL_API_URL = process.env.REACT_APP_LOCAL_API_URL || 'http://localhost:4000/api/data';
 
 interface AppState {
   members: Member[];
@@ -93,7 +94,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const fetchData = async () => {
         try {
           dispatch({ type: 'SET_LOADING', payload: true });
-          const res = await fetch('http://localhost:4000/api/data');
+          const res = await fetch(LOCAL_API_URL);
           const data = await res.json();
           dispatch({ type: 'SET_INITIAL_DATA', payload: data });
         } catch (error) {
@@ -135,7 +136,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (STORAGE_MODE === 'local') {
       // Save to backend API
-      await fetch('http://localhost:4000/api/data', {
+      await fetch(LOCAL_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -165,7 +166,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // refreshData
   const refreshData = async () => {
     if (STORAGE_MODE === 'local') {
-      const res = await fetch('http://localhost:4000/api/data');
+      const res = await fetch(LOCAL_API_URL);
       const data = await res.json();
       dispatch({ type: 'SET_INITIAL_DATA', payload: data });
     } else if (STORAGE_MODE === 'supabase') {
