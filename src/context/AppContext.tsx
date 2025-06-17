@@ -2,7 +2,6 @@ import React, { createContext, useContext, useReducer, ReactNode, useEffect } fr
 import { Member, Photo } from '../types';
 import { supabaseClient } from '../supabase/client';
 
-// Pilih mode storage: 'local' atau 'supabase'
 const STORAGE_MODE = process.env.REACT_APP_STORAGE_MODE || 'local';
 
 interface AppState {
@@ -82,31 +81,28 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     default:
       return state;
   }
-  // Persist ke localStorage jika mode local
-  if (STORAGE_MODE === 'local') {
-    localStorage.setItem('hornya_app_data', JSON.stringify({
-      members: newState.members,
-      photos: newState.photos
-    }));
-  }
   return newState;
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // --- LOCAL STORAGE MODE ---
+  // --- LOCAL VM STORAGE MODE (via backend API) ---
   useEffect(() => {
     if (STORAGE_MODE === 'local') {
-      const savedData = localStorage.getItem('hornya_app_data');
-      if (savedData) {
+      const fetchData = async () => {
         try {
-          const parsedData = JSON.parse(savedData) as AppState;
-          dispatch({ type: 'SET_INITIAL_DATA', payload: parsedData });
+          dispatch({ type: 'SET_LOADING', payload: true });
+          const res = await fetch('http://localhost:4000/api/data');
+          const data = await res.json();
+          dispatch({ type: 'SET_INITIAL_DATA', payload: data });
         } catch (error) {
-          localStorage.removeItem('hornya_app_data');
+          dispatch({ type: 'SET_ERROR', payload: 'Failed to load data from local VM' });
+        } finally {
+          dispatch({ type: 'SET_LOADING', payload: false });
         }
-      }
+      };
+      fetchData();
     }
   }, []);
 
@@ -129,15 +125,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       };
       fetchData();
-      // Optional: subscribe to realtime changes
-      // ...existing code for Supabase subscriptions if needed...
     }
   }, []);
 
-  // Middleware for Supabase sync
+  // Middleware for sync
   const dispatchWithSync = async (action: AppAction) => {
+    let nextState = appReducer(state, action);
     dispatch(action);
-    if (STORAGE_MODE === 'supabase') {
+
+    if (STORAGE_MODE === 'local') {
+      // Save to backend API
+      await fetch('http://localhost:4000/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          members: nextState.members,
+          photos: nextState.photos
+        })
+      });
+    } else if (STORAGE_MODE === 'supabase') {
       try {
         if (action.type === 'ADD_MEMBER') {
           await supabaseClient.from('members').insert(action.payload);
@@ -156,9 +162,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // refreshData only for supabase mode
+  // refreshData
   const refreshData = async () => {
-    if (STORAGE_MODE === 'supabase') {
+    if (STORAGE_MODE === 'local') {
+      const res = await fetch('http://localhost:4000/api/data');
+      const data = await res.json();
+      dispatch({ type: 'SET_INITIAL_DATA', payload: data });
+    } else if (STORAGE_MODE === 'supabase') {
       const { data: membersData } = await supabaseClient.from('members').select('*');
       const { data: photosData } = await supabaseClient.from('photos').select('*');
       if (membersData) dispatch({ type: 'SET_MEMBERS', payload: membersData });
@@ -169,8 +179,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       state,
-      dispatch: STORAGE_MODE === 'supabase' ? dispatchWithSync as React.Dispatch<AppAction> : dispatch,
-      refreshData: STORAGE_MODE === 'supabase' ? refreshData : undefined
+      dispatch: dispatchWithSync as React.Dispatch<AppAction>,
+      refreshData
     }}>
       {children}
     </AppContext.Provider>
