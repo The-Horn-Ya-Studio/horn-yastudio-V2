@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import darkTheme from '../theme/darkTheme';
 
 const AdminPanel: React.FC = () => {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, refreshData } = useApp();
   const { logout } = useAuth();
   const navigate = useNavigate();
   
@@ -27,10 +27,10 @@ const AdminPanel: React.FC = () => {
     linkedin: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const processForm = (avatarUrl: string) => {
+    const processForm = async (avatarUrl: string) => {
       const memberData: Member = {
         id: editingMember?.id || uuidv4(),
         name: memberForm.name,
@@ -50,11 +50,11 @@ const AdminPanel: React.FC = () => {
       };
 
       if (editingMember) {
-        dispatch({ type: 'UPDATE_MEMBER', payload: memberData });
+        await dispatch({ type: 'UPDATE_MEMBER', payload: memberData });
       } else {
-        dispatch({ type: 'ADD_MEMBER', payload: memberData });
+        await dispatch({ type: 'ADD_MEMBER', payload: memberData });
       }
-      
+      if (refreshData) await refreshData();
       resetForm();
     };
 
@@ -103,9 +103,10 @@ const AdminPanel: React.FC = () => {
     setShowForm(true);
   };
 
-  const deleteMember = (id: string) => {
+  const deleteMember = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this member?')) {
-      dispatch({ type: 'DELETE_MEMBER', payload: id });
+      await dispatch({ type: 'DELETE_MEMBER', payload: id });
+      if (refreshData) await refreshData();
     }
   };
 

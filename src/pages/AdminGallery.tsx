@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import darkTheme from '../theme/darkTheme';
 
 const AdminGallery: React.FC = () => {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, refreshData } = useApp();
   const { logout } = useAuth();
   const navigate = useNavigate();
   
@@ -19,12 +19,12 @@ const AdminGallery: React.FC = () => {
     file: null as File | null
   });
 
-  const handleUpload = (e: React.FormEvent) => {
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadForm.file) return;
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const newPhoto: Photo = {
         id: uuidv4(),
         title: uploadForm.title,
@@ -34,16 +34,18 @@ const AdminGallery: React.FC = () => {
         uploadDate: new Date().toISOString()
       };
       
-      dispatch({ type: 'ADD_PHOTO', payload: newPhoto });
+      await dispatch({ type: 'ADD_PHOTO', payload: newPhoto });
+      if (refreshData) await refreshData();
       setUploadForm({ title: '', description: '', photographer: '', file: null });
       setShowUpload(false);
     };
     reader.readAsDataURL(uploadForm.file);
   };
 
-  const deletePhoto = (id: string) => {
+  const deletePhoto = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this photo?')) {
-      dispatch({ type: 'DELETE_PHOTO', payload: id });
+      await dispatch({ type: 'DELETE_PHOTO', payload: id });
+      if (refreshData) await refreshData();
     }
   };
 
