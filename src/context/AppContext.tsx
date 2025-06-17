@@ -5,6 +5,9 @@ import { supabaseClient } from '../supabase/client';
 const STORAGE_MODE = process.env.REACT_APP_STORAGE_MODE || 'local';
 const LOCAL_API_URL = process.env.REACT_APP_LOCAL_API_URL || 'http://localhost:4000/api/data';
 
+console.log("STORAGE_MODE:", STORAGE_MODE);
+console.log("LOCAL_API_URL:", LOCAL_API_URL);
+
 interface AppState {
   members: Member[];
   photos: Photo[];
