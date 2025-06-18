@@ -106,6 +106,21 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
   return newState;
 };
 
+// Add retry utility
+const retryWithBackoff = async (
+  operation: () => Promise<any>,
+  retries = 3,
+  delay = 1000
+): Promise<any> => {
+  try {
+    return await operation();
+  } catch (err) {
+    if (retries === 0) throw err;
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return retryWithBackoff(operation, retries - 1, delay * 2);
+  }
+};
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const fetchTimeoutRef = useRef<NodeJS.Timeout>();
@@ -118,12 +133,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchMembers = async () => {
     try {
       dispatch({ type: 'SET_MEMBERS_LOADING', payload: true });
-      const { data, error } = await supabaseClient
-        .from('members')
-        .select('*')
-        .order('id', { ascending: true });
+      
+      const getData = async () => {
+        const { data, error } = await supabaseClient
+          .from('members')
+          .select('id, name, role, bio, avatar, skills')
+          .limit(50);
+        
+        if (error) throw error;
+        return data;
+      };
 
-      if (error) throw error;
+      const data = await retryWithBackoff(getData);
       
       if (isMountedRef.current) {
         cachedDataRef.current.members = data || [];
@@ -140,20 +161,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       dispatch({ type: 'SET_PHOTOS_LOADING', payload: true });
       
-      const { data, error } = await supabaseClient
-        .from('gallery')
-        .select('id, title, description, url, photographer')
-        .limit(100);
+      const getData = async () => {
+        const { data, error } = await supabaseClient
+          .from('gallery')
+          .select('id, title, description, url, photographer')
+          .limit(50);
+        
+        if (error) throw error;
+        return data;
+      };
 
-      if (error) throw error;
+      const data = await retryWithBackoff(getData);
       
       if (isMountedRef.current) {
         const formattedData = (data || []).map(item => ({
-          id: item.id,
-          title: item.title || '',
-          description: item.description || '',
-          url: item.url || '',
-          photographer: item.photographer || '',
+          ...item,
           uploadDate: new Date().toISOString()
         }));
         
@@ -167,34 +189,66 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // Modified fetchData with immediate cache response
   const fetchData = async () => {
-    if (cachedDataRef.current.members) {
+    // Immediately show cached data if available
+    if (cachedDataRef.current.members?.length) {
       dispatch({ type: 'SET_MEMBERS', payload: cachedDataRef.current.members });
     }
-    if (cachedDataRef.current.photos) {
+    if (cachedDataRef.current.photos?.length) {
       dispatch({ type: 'SET_PHOTOS', payload: cachedDataRef.current.photos });
     }
 
-    await Promise.all([fetchMembers(), fetchPhotos()]);
+    // Fetch fresh data in parallel
+    await Promise.all([
+      fetchMembers().catch(console.error),
+      fetchPhotos().catch(console.error)
+    ]);
+
     dispatch({ type: 'SET_LAST_UPDATE', payload: Date.now() });
   };
 
+  // Modified initial load effect
   useEffect(() => {
     isMountedRef.current = true;
-    
-    fetchData();
+    let pollTimeout: NodeJS.Timeout;
 
-    fetchTimeoutRef.current = setInterval(fetchData, 3000);
+    const initialize = async () => {
+      try {
+        // Initial fetch
+        await fetchData();
+        
+        // Start polling with longer interval
+        const poll = () => {
+          pollTimeout = setTimeout(async () => {
+            if (isMountedRef.current) {
+              await fetchData();
+              poll();
+            }
+          }, 5000); // 5 second poll interval
+        };
+        
+        poll();
+      } catch (error) {
+        console.error('Initialize error:', error);
+      }
+    };
 
-    const onFocus = () => fetchData();
-    window.addEventListener('focus', onFocus);
+    initialize();
+
+    // Focus handler for immediate refresh
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onFocus);
 
     return () => {
       isMountedRef.current = false;
-      window.removeEventListener('focus', onFocus);
-      if (fetchTimeoutRef.current) {
-        clearInterval(fetchTimeoutRef.current);
-      }
+      document.removeEventListener('visibilitychange', onFocus);
+      if (pollTimeout) clearTimeout(pollTimeout);
     };
   }, []);
 
