@@ -120,7 +120,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       dispatch({ type: 'SET_MEMBERS_LOADING', payload: true });
       const { data, error } = await supabaseClient
         .from('members')
-        .select('*');
+        .select('*')
+        .order('id', { ascending: true });
 
       if (error) throw error;
       
@@ -138,15 +139,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchPhotos = async () => {
     try {
       dispatch({ type: 'SET_PHOTOS_LOADING', payload: true });
+      
       const { data, error } = await supabaseClient
         .from('gallery')
-        .select('*');
+        .select('id, title, description, url, photographer')
+        .limit(100);
 
       if (error) throw error;
       
       if (isMountedRef.current) {
-        cachedDataRef.current.photos = data || [];
-        dispatch({ type: 'SET_PHOTOS', payload: data || [] });
+        const formattedData = (data || []).map(item => ({
+          id: item.id,
+          title: item.title || '',
+          description: item.description || '',
+          url: item.url || '',
+          photographer: item.photographer || '',
+          uploadDate: new Date().toISOString()
+        }));
+        
+        cachedDataRef.current.photos = formattedData;
+        dispatch({ type: 'SET_PHOTOS', payload: formattedData });
       }
     } catch (error) {
       console.error('Photos fetch error:', error);
@@ -198,9 +210,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         
         fetchMembers();
       } else if (action.type === 'ADD_PHOTO') {
+        const { id, title, description, url, photographer } = action.payload;
         const { error } = await supabaseClient
           .from('gallery')
-          .insert(action.payload);
+          .insert({ 
+            id,
+            title,
+            description,
+            url,
+            photographer
+          });
         if (error) throw error;
         
         fetchPhotos();

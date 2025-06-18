@@ -34,7 +34,7 @@ const AdminGallery: React.FC = () => {
         uploadDate: new Date().toISOString()
       };
       
-      await dispatch({ type: 'ADD_PHOTO', payload: newPhoto });
+      dispatch({ type: 'ADD_PHOTO', payload: newPhoto });
       if (refreshData) await refreshData();
       setUploadForm({ title: '', description: '', photographer: '', file: null });
       setShowUpload(false);
@@ -44,7 +44,7 @@ const AdminGallery: React.FC = () => {
 
   const deletePhoto = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this photo?')) {
-      await dispatch({ type: 'DELETE_PHOTO', payload: id });
+      dispatch({ type: 'DELETE_PHOTO', payload: id });
       if (refreshData) await refreshData();
     }
   };
@@ -178,7 +178,7 @@ const AdminGallery: React.FC = () => {
                 <p style={photoDescriptionStyle}>{photo.description}</p>
                 <div style={photoMetaStyle}>
                   <span>By: {photo.photographer}</span>
-                  <span>{new Date(photo.uploadDate).toLocaleDateString()}</span>
+                  <span>{photo.uploadDate ? new Date(photo.uploadDate).toLocaleDateString() : ''}</span>
                 </div>
               </div>
             </div>

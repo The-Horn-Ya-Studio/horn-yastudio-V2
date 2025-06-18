@@ -21,8 +21,8 @@ export interface Photo {
   title: string;
   description: string;
   url: string;
-  uploadDate: string;
   photographer: string;
+  uploadDate?: string; // Made optional since not in DB
 }
 
 export interface User {
