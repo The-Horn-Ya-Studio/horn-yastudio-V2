@@ -12,16 +12,9 @@ export interface Member {
 
 // Fetch all members with regular query
 export const getMembers = async (): Promise<Member[]> => {
-  const { data, error } = await supabase
-    .from('members')
-    .select('*')
-    .order('name');
-
-  if (error) {
-    console.error('Error fetching members:', error);
-    return [];
-  }
-  return data || [];
+  const res = await fetch('/api/members');
+  if (!res.ok) return [];
+  return await res.json();
 };
 
 // Fetch featured members

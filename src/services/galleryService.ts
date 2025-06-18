@@ -17,25 +17,13 @@ export const getGalleryItems = async (
   page = 1,
   pageSize = PAGE_SIZE
 ): Promise<{ items: GalleryItem[]; totalCount: number; hasMore: boolean }> => {
-  // Calculate the range for pagination
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-
-  const { data, error, count } = await supabase
-    .from('gallery')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(from, to);
-
-  if (error) {
-    console.error('Error fetching gallery items:', error);
-    return { items: [], totalCount: 0, hasMore: false };
-  }
-
-  return { 
-    items: data || [], 
-    totalCount: count || 0,
-    hasMore: count ? from + pageSize < count : false
+  const res = await fetch(`/api/gallery?page=${page}&pageSize=${pageSize}`);
+  if (!res.ok) return { items: [], totalCount: 0, hasMore: false };
+  const { items, totalCount } = await res.json();
+  return {
+    items,
+    totalCount,
+    hasMore: totalCount ? (page * pageSize < totalCount) : false
   };
 };
 
