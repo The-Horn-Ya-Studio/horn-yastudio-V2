@@ -1,0 +1,7 @@
+/* Tambahkan pattern background untuk hero section */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, rgba(203, 166, 247, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(203, 166, 247, 0.1) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
