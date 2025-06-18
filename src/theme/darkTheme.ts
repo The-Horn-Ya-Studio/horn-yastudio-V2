@@ -1,19 +1,19 @@
 const darkTheme = {
   colors: {
-    background: '#0A0A0A',
-    surface: '#121212',
-    surfaceAlt: '#1A1A1A',
-    primary: '#6A5ACD', // Slate blue - anime-inspired
-    secondary: '#FF4081', // Pink - anime-inspired
-    accent: '#00B0FF', // Cyan - tech-inspired
+    background: '#11111B', // Crust
+    surface: '#1E1E2E',    // Base
+    surfaceAlt: '#181825', // Mantle
+    primary: '#B4BEFE',    // Lavender
+    secondary: '#F5C2E7',  // Pink
+    accent: '#89B4FA',     // Blue
     text: {
-      primary: '#FFFFFF',
-      secondary: '#B0B0B0',
-      accent: '#6A5ACD',
+      primary: '#CDD6F4',  // Text
+      secondary: '#BAC2DE', // Subtext
+      accent: '#B4BEFE',   // Lavender
     },
-    border: '#333333',
-    error: '#CF6679',
-    success: '#03DAC5',
+    border: '#313244',     // Surface
+    error: '#F38BA8',      // Red
+    success: '#A6E3A1',    // Green
   },
   spacing: {
     xs: '0.25rem',
@@ -62,16 +62,15 @@ const darkTheme = {
     fast: '0.15s ease',
     slow: '0.5s ease',
   },
-  // Enhanced gradients with more black
   gradients: {
-    primary: 'linear-gradient(135deg, #6A5ACD 0%, #00B0FF 100%)',
-    secondary: 'linear-gradient(135deg, #FF4081 0%, #6A5ACD 100%)',
-    accent: 'linear-gradient(135deg, #00B0FF 0%, #00BFA5 100%)',
-    darkGlass: 'linear-gradient(180deg, rgba(18, 18, 18, 0.95) 0%, rgba(10, 10, 10, 0.98) 100%)',
-    darkMetal: 'linear-gradient(135deg, #1A1A1A 0%, #0A0A0A 100%)',
-    darkShine: 'linear-gradient(180deg, #1A1A1A 0%, #0A0A0A 50%, #121212 100%)',
-    darkAccent: 'linear-gradient(135deg, #0A0A0A 0%, #1A1A1A 90%, #6A5ACD 100%)',
-    darkGlow: 'radial-gradient(circle at center, rgba(106, 90, 205, 0.15) 0%, rgba(10, 10, 10, 0) 70%)',
+    primary: 'linear-gradient(135deg, #B4BEFE 0%, #89B4FA 100%)', // Lavender to Blue
+    secondary: 'linear-gradient(135deg, #F5C2E7 0%, #B4BEFE 100%)', // Pink to Lavender
+    accent: 'linear-gradient(135deg, #89B4FA 0%, #89DCEB 100%)', // Blue to Sky
+    darkGlass: 'linear-gradient(180deg, rgba(30, 30, 46, 0.95) 0%, rgba(17, 17, 27, 0.98) 100%)', // Base to Crust
+    darkMetal: 'linear-gradient(135deg, #181825 0%, #11111B 100%)', // Mantle to Crust
+    darkShine: 'linear-gradient(180deg, #181825 0%, #11111B 50%, #1E1E2E 100%)', // Mantle, Crust, Base
+    darkAccent: 'linear-gradient(135deg, #11111B 0%, #181825 90%, #B4BEFE 100%)', // Crust, Mantle, Lavender
+    darkGlow: 'radial-gradient(circle at center, rgba(180, 190, 254, 0.15) 0%, rgba(17, 17, 27, 0) 70%)', // Lavender glow
   },
 };
 
