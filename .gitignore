@@ -37,6 +37,7 @@ next-env.d.ts
 # misc
 .eslintcache
 .env
+package-lock.json
 
 # GitHub-related credentials
 .git-credentials
