@@ -1,54 +1,18 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { getGalleryItems, prefetchGalleryThumbnails, GalleryItem } from '../services/galleryService';
-import '../styles/Gallery.css'; // Create or update this CSS file for gallery styling
+import React, { useEffect, useRef } from 'react';
+import { useRealtimeGallery, prefetchGalleryThumbnails, GalleryItem } from '../services/galleryService';
+import '../styles/Gallery.css';
 
 const Gallery: React.FC = () => {
-  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const { items: galleryItems, loading, hasMore, loadMore } = useRealtimeGallery();
 
-  // Refs to prevent stale closure in scroll handler
-  const loadingRef = useRef(loading);
-  const hasMoreRef = useRef(hasMore);
+  // Ref for tracking bottom of screen for infinite scroll
+  const bottomObserverRef = useRef<HTMLDivElement>(null);
 
+  // Initial load actions and scroll listener
   useEffect(() => {
-    loadingRef.current = loading;
-    hasMoreRef.current = hasMore;
-  }, [loading, hasMore]);
-
-  // Load gallery items with improved performance
-  const loadGalleryItems = useCallback(async (pageNum: number, append = false) => {
-    setLoading(true);
-    try {
-      const { items, hasMore: more } = await getGalleryItems(pageNum);
-      setGalleryItems(prev => append ? [...prev, ...items] : items);
-      setHasMore(more);
-    } catch (error) {
-      console.error('Failed to load gallery items:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Load more items when scrolling
-  const loadMore = useCallback(() => {
-    if (!loadingRef.current && hasMoreRef.current) {
-      setPage(prevPage => {
-        const nextPage = prevPage + 1;
-        loadGalleryItems(nextPage, true);
-        return nextPage;
-      });
-    }
-  }, [loadGalleryItems]);
-
-  useEffect(() => {
-    // Initial load
-    loadGalleryItems(1);
-
     // Prefetch thumbnails for smoother experience
     prefetchGalleryThumbnails();
-
+    
     // Add scroll event listener for infinite scrolling
     const handleScroll = () => {
       if (
@@ -58,11 +22,10 @@ const Gallery: React.FC = () => {
         loadMore();
       }
     };
-
+    
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-    // eslint-disable-next-line
-  }, [loadGalleryItems, loadMore]);
+  }, [loadMore]);
 
   return (
     <div className="gallery-container">
@@ -92,6 +55,9 @@ const Gallery: React.FC = () => {
       {!loading && galleryItems.length === 0 && (
         <p className="no-items-message">No gallery items found</p>
       )}
+
+      {/* Reference element for infinite scroll detection */}
+      <div ref={bottomObserverRef} style={{ height: "10px" }}></div>
     </div>
   );
 };

@@ -33,48 +33,52 @@ export const getFeaturedMembers = async (limit = 4): Promise<Member[]> => {
   return data || [];
 };
 
-// Hook for realtime members data
+// Hook for realtime members data - improved version
 export const useRealtimeMembers = () => {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initial fetch
-    getMembers().then(data => {
-      setMembers(data);
-      setLoading(false);
-    });
+    // Initial fetch function that we can reuse
+    const fetchData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('members')
+          .select('*')
+          .order('name');
+        
+        if (error) {
+          console.error('Error fetching members:', error);
+          return;
+        }
+        
+        setMembers(data || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Initial data load
+    fetchData();
 
     // Set up realtime subscription
     const channel = supabase
-      .channel('members-changes')
+      .channel('realtime-members')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'members' },
-        (payload: any) => {
-          if (payload.eventType === 'INSERT') {
-            setMembers(current => [...current, payload.new as Member]);
-          } else if (payload.eventType === 'UPDATE') {
-            setMembers(current =>
-              current.map(member =>
-                member.id === payload.new.id ? (payload.new as Member) : member
-              )
-            );
-          } else if (payload.eventType === 'DELETE') {
-            setMembers(current =>
-              current.filter(member => member.id !== payload.old.id)
-            );
-          }
+        (payload) => {
+          console.log('Member change received!', payload);
+          // Simple approach - fetch all data again on any change 
+          // This ensures we always have fresh, sorted data
+          fetchData();
         }
       )
       .subscribe();
 
     return () => {
-      if (channel && typeof channel.unsubscribe === 'function') {
-        channel.unsubscribe();
-      } else if (supabase.removeChannel) {
-        supabase.removeChannel(channel);
-      }
+      // Clean up subscription when component unmounts
+      supabase.removeChannel(channel);
     };
   }, []);
 
