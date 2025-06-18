@@ -29,6 +29,14 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw?
+node_modules/
+package-lock.json
+# Next.js
+.next
+# Nuxt.js
+.nuxt
+# SvelteKit
+.svelte-kit
 
 # typescript
 *.tsbuildinfo
