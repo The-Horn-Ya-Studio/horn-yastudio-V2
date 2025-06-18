@@ -121,6 +121,15 @@ const retryWithBackoff = async (
   }
 };
 
+// Add interface for gallery data structure
+interface GalleryItem {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  photographer: string;
+}
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const fetchTimeoutRef = useRef<NodeJS.Timeout>();
@@ -168,13 +177,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           .limit(50);
         
         if (error) throw error;
-        return data;
+        return data as GalleryItem[];
       };
 
       const data = await retryWithBackoff(getData);
       
       if (isMountedRef.current) {
-        const formattedData = (data || []).map(item => ({
+        const formattedData = (data || []).map((item: GalleryItem) => ({
           ...item,
           uploadDate: new Date().toISOString()
         }));
